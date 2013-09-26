@@ -1,11 +1,11 @@
 """This module is used to scrape the all of the APIs from a given source file
-and return thier name and kind.  These include classes, structs, functions, 
+and return thier name and kind.  These include classes, structs, functions,
 and certain variable types.  It is not used to actually describe these elements.
 That is the job of the autodescriber.
 
 This module is available as an xdress plugin by the name ``xdress.autoall``.
 
-Including this plugin enables the ``classes``, ``functions``, and ``variables``  
+Including this plugin enables the ``classes``, ``functions``, and ``variables``
 run control parameters to have an asterix ('*') in the name positon (index 0).
 For example, rather than writing::
 
@@ -31,10 +31,10 @@ Automatic Finder API
 from __future__ import print_function
 import os
 import io
-import re
 import sys
 from hashlib import md5
-from pprint import pprint, pformat
+from pprint import pformat
+from warnings import warn
 try:
     import cPickle as pickle
 except ImportError:
@@ -48,8 +48,7 @@ except ImportError:
 from . import utils
 from . import astparsers
 
-from .utils import find_source, FORBIDDEN_NAMES, NotSpecified, RunControl, apiname, \
-    ensure_apiname
+from .utils import find_source, FORBIDDEN_NAMES, RunControl, ensure_apiname
 
 if os.name == 'nt':
     import ntpath
@@ -58,17 +57,20 @@ if os.name == 'nt':
 if sys.version_info[0] >= 3:
     basestring = str
 
+
 class GccxmlFinder(object):
-    """Class used for discovering APIs using an etree representation of 
+
+    """Class used for discovering APIs using an etree representation of
     the GCC-XML AST."""
 
     def __init__(self, root=None, onlyin=None, verbose=False):
         """Parameters
         -------------
         root : element tree node, optional
-            The root element node of the AST.  
+            The root element node of the AST.
         onlyin :  str, optional
-            Filename to search, prevents finding APIs coming from other libraries.
+            Filename to search, prevents finding APIs coming from
+            other libraries.
         verbose : bool, optional
             Flag to display extra information while visiting the file.
 
@@ -90,15 +92,16 @@ class GccxmlFinder(object):
         self.classes = []
 
     def __str__(self):
-        return ("vars = " + pformat(self.variables) + "\n" + 
+        return ("vars = " + pformat(self.variables) + "\n" +
                 "funcs = " + pformat(self.functions) + "\n" +
                 "classes = " + pformat(self.classes) + "\n")
 
     def _pprint(self, node):
         if self.verbose:
-            print("Auto-Found: {0} {1} {2}".format(node.tag,
-                                        node.attrib.get('id', ''),
-                                        node.attrib.get('name', None)))
+            msg = "Auto-Found: {0} {1} {2}"
+            print(msg.format(node.tag,
+                             node.attrib.get('id', ''),
+                             node.attrib.get('name', None)))
 
     def visit(self, node=None):
         """Visits the node and all sub-nodes, filling the API names
@@ -107,7 +110,7 @@ class GccxmlFinder(object):
         Parameters
         ----------
         node : element tree node, optional
-            The element tree node to start from.  If this is None, then the 
+            The element tree node to start from.  If this is None, then the
             top-level node is found and visited.
 
         """
@@ -117,20 +120,21 @@ class GccxmlFinder(object):
         self.classes += self.visit_kinds(node, ["Class", "Struct"])
 
     def visit_kinds(self, node, kinds):
-        """Visits the node and all sub-nodes, finding instances of the kinds 
+        """Visits the node and all sub-nodes, finding instances of the kinds
         and recording the names as it goes.
 
         Parameters
         ----------
         node : element tree node
-            The element tree node to start from.  
+            The element tree node to start from.
         kinds : str or sequence of str
             The API elements to find.
 
         Returns
         -------
         names : list of str
-            Names of the API elements in this file that match the kinds provided.
+            Names of the API elements in this file that match
+            the kinds provided.
 
         """
         if not isinstance(kinds, basestring):
@@ -151,10 +155,10 @@ class GccxmlFinder(object):
             names.add(utils.parse_template(name))
             self._pprint(child)
         return sorted(names)
-            
+
 
 def gccxml_findall(filename, includes=(), defines=('XDRESS',), undefines=(),
-                   verbose=False, debug=False,  builddir='build'):
+                   verbose=False, debug=False, builddir='build'):
     """Automatically finds all API elements in a file via GCC-XML.
 
     Parameters
@@ -168,11 +172,12 @@ def gccxml_findall(filename, includes=(), defines=('XDRESS',), undefines=(),
     undefines : list of str, optional
         The list of extra macro undefinitions to apply.
     parsers : str, list, or dict, optional
-        The parser / AST to use to use for the file.  Currently 'clang', 'gccxml', 
-        and 'pycparser' are supported, though others may be implemented in the 
-        future.  If this is a string, then this parser is used.  If this is a list, 
-        this specifies the parser order to use based on availability.  If this is
-        a dictionary, it specifies the order to use parser based on language, i.e.
+        The parser / AST to use to use for the file.
+        Currently 'clang', 'gccxml', and 'pycparser' are supported,
+        though others may be implemented in the future.  If this is a string,
+        then this parser is used.  If this is a list, this specifies the
+        parser order to use based on availability.  If this is  dictionary,
+        it specifies the order to use parser based on language, i.e.
         ``{'c' ['pycparser', 'gccxml'], 'c++': ['gccxml', 'pycparser']}``.
     verbose : bool, optional
         Flag to diplay extra information while describing the class.
@@ -194,29 +199,34 @@ def gccxml_findall(filename, includes=(), defines=('XDRESS',), undefines=(),
     if os.name == 'nt':
         # GCC-XML and/or Cygwin wants posix paths on Windows.
         filename = posixpath.join(*ntpath.split(filename))
-    root = astparsers.gccxml_parse(filename, includes=includes, defines=defines,
-            undefines=undefines, verbose=verbose, debug=debug, builddir=builddir)
+    root = astparsers.gccxml_parse(
+        filename, includes=includes, defines=defines,
+        undefines=undefines, verbose=verbose, debug=debug, builddir=builddir)
     basename = filename.rsplit('.', 1)[0]
-    onlyin = set([filename] + 
-                 [basename + '.' + h for h in utils._hdr_exts if h.startswith('h')])
+    onlyin = set([filename] + [basename + '.' + h
+                 for h in utils._hdr_exts if h.startswith('h')])
     finder = GccxmlFinder(root, onlyin=onlyin, verbose=verbose)
     finder.visit()
     return finder.variables, finder.functions, finder.classes
+
 
 @astparsers.not_implemented
 def clang_findall(*args, **kwargs):
     pass
 
+
 class PycparserFinder(astparsers.PycparserNodeVisitor):
+
     """Class used for discovering APIs using the pycparser AST."""
 
     def __init__(self, root=None, onlyin=None, verbose=False):
         """Parameters
         -------------
         root : element tree node, optional
-            The root element node of the AST.  
+            The root element node of the AST.
         onlyin :  str, optional
-            Filename to search, prevents finding APIs coming from other libraries.
+            Filename to search, prevents finding APIs coming from
+            other libraries.
         verbose : bool, optional
             Flag to display extra information while visiting the file.
 
@@ -230,7 +240,7 @@ class PycparserFinder(astparsers.PycparserNodeVisitor):
         self.classes = []
 
     def __str__(self):
-        return ("vars = " + pformat(self.variables) + "\n" + 
+        return ("vars = " + pformat(self.variables) + "\n" +
                 "funcs = " + pformat(self.functions) + "\n" +
                 "classes = " + pformat(self.classes) + "\n")
 
@@ -245,7 +255,7 @@ class PycparserFinder(astparsers.PycparserNodeVisitor):
         Parameters
         ----------
         node : element tree node, optional
-            The element tree node to start from.  If this is None, then the 
+            The element tree node to start from.  If this is None, then the
             top-level node is found and visited.
 
         """
@@ -285,7 +295,7 @@ class PycparserFinder(astparsers.PycparserNodeVisitor):
             self._status = "<name-not-found>"
             return
         if name.startswith('_'):
-            return 
+            return
         if name in FORBIDDEN_NAMES:
             return
         self._pprint(node)
@@ -311,7 +321,7 @@ class PycparserFinder(astparsers.PycparserNodeVisitor):
 
 
 def pycparser_findall(filename, includes=(), defines=('XDRESS',), undefines=(),
-                      verbose=False, debug=False,  builddir='build'):
+                      verbose=False, debug=False, builddir='build'):
     """Automatically finds all API elements in a file via GCC-XML.
 
     Parameters
@@ -341,8 +351,9 @@ def pycparser_findall(filename, includes=(), defines=('XDRESS',), undefines=(),
         A list of class names to wrap from the file.
 
     """
-    root = astparsers.pycparser_parse(filename, includes=includes, defines=defines,
-                undefines=undefines, verbose=verbose, debug=debug, builddir=builddir)
+    root = astparsers.pycparser_parse(
+        filename, includes=includes, defines=defines,
+        undefines=undefines, verbose=verbose, debug=debug, builddir=builddir)
     basename = filename.rsplit('.', 1)[0]
     onlyin = set([filename, basename + '.h'])
     finder = PycparserFinder(root, onlyin=onlyin, verbose=verbose)
@@ -358,11 +369,13 @@ _finders = {
     'clang': clang_findall,
     'gccxml': gccxml_findall,
     'pycparser': pycparser_findall,
-    }
+}
 
-def findall(filename, includes=(), defines=('XDRESS',), undefines=(), 
-            parsers='gccxml', verbose=False, debug=False,  builddir='build'):
-    """Automatically finds all API elements in a file.  This is the main entry point.
+
+def findall(filename, includes=(), defines=('XDRESS',), undefines=(),
+            parsers='gccxml', verbose=False, debug=False, builddir='build'):
+    """Automatically finds all API elements in a file.
+    This is the main entry point.
 
     Parameters
     ----------
@@ -375,11 +388,12 @@ def findall(filename, includes=(), defines=('XDRESS',), undefines=(),
     undefines: list of str, optional
         The list of extra macro undefinitions to apply.
     parsers : str, list, or dict, optional
-        The parser / AST to use to use for the file.  Currently 'clang', 'gccxml', 
-        and 'pycparser' are supported, though others may be implemented in the 
-        future.  If this is a string, then this parser is used.  If this is a list, 
-        this specifies the parser order to use based on availability.  If this is
-        a dictionary, it specifies the order to use parser based on language, i.e.
+        The parser / AST to use to use for the file.
+        Currently 'clang', 'gccxml', and 'pycparser' are supported,
+        though others may be implemented in the future.  If this is a string,
+        then this parser is used. If this is a list, this specifies the parser
+        order to use based on availability.  If this is a dictionary,
+        it specifies the order to use parser based on language, i.e.
         ``{'c' ['pycparser', 'gccxml'], 'c++': ['gccxml', 'pycparser']}``.
     verbose : bool, optional
         Flag to diplay extra information while describing the class.
@@ -400,8 +414,9 @@ def findall(filename, includes=(), defines=('XDRESS',), undefines=(),
     """
     parser = astparsers.pick_parser(filename, parsers)
     finder = _finders[parser]
-    rtn = finder(filename, includes=includes, defines=defines, undefines=undefines, 
-                 verbose=verbose, debug=debug, builddir=builddir)
+    rtn = finder(
+        filename, includes=includes, defines=defines, undefines=undefines,
+        verbose=verbose, debug=debug, builddir=builddir)
     return rtn
 
 
@@ -410,8 +425,9 @@ def findall(filename, includes=(), defines=('XDRESS',), undefines=(),
 #
 
 class AutoNameCache(object):
-    """A quick persistent cache for name lists automatically found in files.  
-    The keys are (classname, filename, kind) tuples.  The values are 
+
+    """A quick persistent cache for name lists automatically found in files.
+    The keys are (classname, filename, kind) tuples.  The values are
     (hashes-of-the-file, finder-results) tuples."""
 
     def __init__(self, cachefile=os.path.join('build', 'autoname.cache')):
@@ -429,7 +445,7 @@ class AutoNameCache(object):
             self.cache = {}
 
     def isvalid(self, filename):
-        """Boolean on whether the cach value for a filename matches the state 
+        """Boolean on whether the cach value for a filename matches the state
         of the file on the system."""
         key = filename
         if key not in self.cache:
@@ -469,9 +485,11 @@ class AutoNameCache(object):
 # Plugin
 #
 
+
 class XDressPlugin(astparsers.ParserPlugin):
-    """This plugin resolves the '*' syntax in wrapper types by parsing the 
-    source files prio to describing them. 
+
+    """This plugin resolves the '*' syntax in wrapper types by parsing the
+    source files prio to describing them.
     """
     allsrc = varhasstar = fnchasstar = clshasstar = None
 
@@ -490,8 +508,9 @@ class XDressPlugin(astparsers.ParserPlugin):
         return msg
 
     def setup(self, rc):
-        """Expands variables, functions, and classes in the rc based on 
-        copying src filenames to tar filename and the special '*' all syntax."""
+        """Expands variables, functions, and classes in the rc based on
+        copying src filenames to tar filename and the special '*' all
+        syntax."""
         super(XDressPlugin, self).setup(rc)
         self.setup_basic(rc)
         self.setup_heavy(rc)
@@ -541,18 +560,20 @@ class XDressPlugin(astparsers.ParserPlugin):
         allnames = {}
         cachefile = os.path.join(rc.builddir, 'autoname.cache')
         autonamecache = AutoNameCache(cachefile=cachefile)
+        msg = "autoall: searching {0} (from {1!r})"
         for i, srcname in enumerate(allsrc):
-            srcfname, hdrfname, lang, ext = find_source(srcname, 
+            srcfname, hdrfname, lang, ext = find_source(srcname,
                                                         sourcedir=rc.sourcedir)
             filename = os.path.join(rc.sourcedir, srcfname)
-            print("autoall: searching {0} (from {1!r})".format(srcfname, srcname))
+            print(msg.format(srcfname, srcname))
             if autonamecache.isvalid(filename):
                 found = autonamecache[filename]
             else:
-                found = findall(filename, includes=rc.includes, defines=rc.defines, 
-                                undefines=rc.undefines, parsers=rc.parsers, 
-                                verbose=rc.verbose, debug=rc.debug, 
-                                builddir=rc.builddir)
+                found = findall(
+                    filename, includes=rc.includes, defines=rc.defines,
+                    undefines=rc.undefines, parsers=rc.parsers,
+                    verbose=rc.verbose, debug=rc.debug,
+                    builddir=rc.builddir)
                 autonamecache[filename] = found
                 autonamecache.dump()
             allnames[srcname] = found
@@ -565,7 +586,7 @@ class XDressPlugin(astparsers.ParserPlugin):
             if 0 < len(found[2]):
                 fstr = ", ".join([str(_) for _ in found[2]])
                 print("autoall: found classes: " + fstr)
-            if 0 == i%rc.clear_parser_cache_period:
+            if 0 == i % rc.clear_parser_cache_period:
                 astparsers.clearmemo()
 
         # third pass -- replace *s
@@ -596,4 +617,3 @@ class XDressPlugin(astparsers.ParserPlugin):
                 else:
                     newclss.append(cls)
             rc.classes = newclss
-
