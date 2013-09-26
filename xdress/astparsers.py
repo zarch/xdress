@@ -10,15 +10,11 @@ from __future__ import print_function
 import os
 import io
 import sys
-from copy import deepcopy
-import linecache
 import subprocess
-import itertools
 import tempfile
 import functools
 import collections
-from pprint import pprint, pformat
-from warnings import warn
+from pprint import pformat
 import gzip
 try:
     import cPickle as pickle
@@ -40,16 +36,16 @@ except ImportError:
         import xml.etree.cElementTree as etree
     except ImportError:
         try:
-          # Python 2.5
-          import xml.etree.ElementTree as etree
+            # Python 2.5
+            import xml.etree.ElementTree as etree
         except ImportError:
             try:
                 # normal cElementTree install
                 import cElementTree as etree
             except ImportError:
                 try:
-                  # normal ElementTree install
-                  import elementtree.ElementTree as etree
+                    # normal ElementTree install
+                    import elementtree.ElementTree as etree
                 except ImportError:
                     pass
 
@@ -61,7 +57,6 @@ except ImportError:
     pycparser = None
     PycparserNodeVisitor = object  # fake this for class definitions
 
-from . import utils
 from .utils import guess_language, RunControl, NotSpecified
 from .plugins import Plugin
 
@@ -345,7 +340,7 @@ class ParserPlugin(Plugin):
     requires = ('xdress.base',)
     """This plugin requires 'xdress.base'."""
 
-    defaultrc = utils.RunControl(
+    defaultrc = RunControl(
         includes=[],
         defines=["XDRESS"],
         undefines=[],
